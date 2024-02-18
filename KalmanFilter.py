@@ -1,6 +1,8 @@
 import numpy as np
 from plot import *
-
+from Constants import *
+from Simulator import Simulator
+from Sensor import Sensor
 class KalmanFilter:
     def __init__(self, A, B, R, C=None, Q=None) -> None:
         self.A:np.array = A
@@ -28,7 +30,7 @@ class KalmanFilter:
             K= sigma_prior@self.C.T@tmp_inv
             return K
     
-    def measurement_update_mu(self, K, mu_prior, sigma_prior, obs):
+    def measurement_update(self, K, mu_prior, sigma_prior, obs):
         diff = obs - self.C@mu_prior
         gain = K @ diff
         mu_post = mu_prior + gain
@@ -36,43 +38,19 @@ class KalmanFilter:
         sigma_post = (np.identity(n=np.shape(tmp)[0]) - tmp)@sigma_prior
         return mu_post, sigma_post
     
-    def run(self, mu_prev, sigma_prev, u_curr, z_curr):
-        pass
-
+    def run(self, mu_prev, sigma_prev, u_curr, z_curr=None):
+        mu_curr_prior = self.mu_prediction(mu_prev=mu_prev, u_curr=u_curr)
+        sigma_curr_prior = self.calculate_covariance(sigma_prev=sigma_prev)
+        K = self.kalman_gain(sigma_prior=sigma_curr_prior)
+        if z_curr:#if there's measurement, return the updated prediction
+            mu_curr_posterior, sigma_curr_posterior = self.measurement_update(K=K, mu_prior=mu_curr_prior, sigma_prior=sigma_curr_prior, obs=z_curr)
+            return mu_curr_posterior, sigma_curr_posterior
+        else:#if there's no measurement, return the prediction prior to measurement
+            return mu_curr_prior, sigma_curr_prior
 
     
 
 if __name__ == "__main__":
-    B = np.array(
-        [(0.0, 0.0),
-        (0.0, 0.0),
-        ]
-    )
-    u = np.array([[0.0], 
-                  [0.0]])
-
-
-    delta_t = 1.0
-    variance_ddotx_t0 = 1.0
-    variance_x_t0 = 0
-    variance_dotx_t0 = 0
-    sigma_t0 = np.array([
-        (0.0, 0.0),
-        (0.0, 0.0)
-    ])
-    A = np.array(
-        [(1.0, delta_t),
-        (0.0, 1.0),
-        ]
-    )
-    R = np.array([
-        (delta_t**4/4.0, delta_t**3/2.0),
-        (delta_t**3/2.0, delta_t**2) 
-    ])
-    C = np.array([[1.0, 0.0]])
-    Q = np.array([8.0])
-    mu_t0 = np.array([[0],
-                    [0]])
     filter = KalmanFilter(A=A, B=B, R=R, C=C, Q=Q)
     results = []
     mu_prev = mu_t0
@@ -101,7 +79,7 @@ if __name__ == "__main__":
     with open('measurement_update.txt', 'w') as file:
         
         K = filter.kalman_gain(sigma_prior=cov)
-        mu_post, sigma_post = filter.measurement_update_mu(K=K, mu_prior=means, sigma_prior=cov, obs=np.array([10]))
+        mu_post, sigma_post = filter.measurement_update(K=K, mu_prior=means, sigma_prior=cov, obs=np.array([10]))
         file.write(f"sigma prior t{i}:\n{cov}")
         file.write("\n\n")
         file.write(f"mu prior t{i}:\n{means}")
@@ -109,4 +87,31 @@ if __name__ == "__main__":
         file.write(f"sigma posterior t{i}:\n{sigma_post}")
         file.write("\n\n")
         file.write(f"mu posterior t{i}:\n{mu_post}")
-            
+    
+    simulator = Simulator()
+    sensor = Sensor(variance=8)
+    sensor_fail_prob_errors = []
+    with open('faulty_sensor_filter_error.txt', 'w') as file:
+        for fail_prob in [0.1, 0.5, 0.9]:
+            file.write(f"==================sensor fail probability {fail_prob}: ================ \n")
+            errors = []
+            for i in range(1, N + 1):
+                file.write(f"------------simulation {i} -------------\n")
+                mu_prev, sigma_prev, u_curr = mu_t0, sigma_t0, u
+                simulated_states = simulator.simulate(num_timestep=20)
+                for i in range(20):
+                    file.write(f"timestep {i + 1}: ----------- \n")
+                    simulated_pos = simulated_states[i][0]
+                    sensed_pos = sensor.sense(true_position=simulated_pos, fail_prob=fail_prob)[0]
+                    mu_curr, sigma_curr = filter.run(mu_prev=mu_prev, sigma_prev=sigma_prev, u_curr=u_curr, z_curr=sensed_pos)
+                    mu_prev, sigma_prev = mu_curr, sigma_curr
+                    file.write(f"sensed position: {sensed_pos}\n")
+                    file.write(f"true position at t{i + 1}: {simulated_pos}\n")
+                    file.write(f"final predicted mu at t{i + 1}: \n{mu_curr}\n")
+                    error = abs(mu_curr[0][0] - simulated_pos[0])
+                    file.write(f"error distance from true position: {error}\n")
+                errors.append(error)
+            avg_error = np.average(errors)
+            sensor_fail_prob_errors.append(avg_error)
+            file.write(f"average error with sensor fail probability {fail_prob} at t{i + 1}: {avg_error}")
+    plot_errors(errors=sensor_fail_prob_errors, categories=["0.1", "0.5", "0.9"])
