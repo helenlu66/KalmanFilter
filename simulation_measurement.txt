@@ -1,0 +1,7 @@
+true position at t1: [0.]
+true position at t2: [-0.27283527]
+true position at t3: [0.49668245]
+true position at t4: [3.00267159]
+true position at t5: [6.22960415]
+sensor measurement at t5: [8.58188962]
+error: [0.3775373]
