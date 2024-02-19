@@ -5,9 +5,15 @@ class Sensor:
         self.variance = variance
         self.simulator = Simulator()
     
-    def sense(self, true_position, sample_size=1):
+    def sense(self, true_position, fail_prob=0.0, sample_size=1):
         std = np.sqrt(self.variance)
-        return np.random.normal(true_position, std, sample_size)
+        sample = []
+        for _ in range(sample_size):
+            if np.random.rand() > fail_prob:
+                sample.append(np.random.normal(true_position, std, 1)[0])
+            else:
+                sample.append(None)
+        return sample
 
     def calculate_error(self, num_timestep=5):
         """calculate the error of the sensor as a percentage of the true position averaged across N simulations"""
@@ -23,4 +29,4 @@ class Sensor:
 
 if __name__=="__main__":
     sensor = Sensor(variance=8)
-    sensor.calculate_error(num_timestep=5)
+    sensor.calculate_error()

@@ -2,6 +2,25 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 
+def plot_errors(errors:list, categories:list):
+    
+    # Creating the bar plot
+    plt.figure(figsize=(10, 6))  # Set the figure size as needed
+    plt.bar(categories, errors, color='skyblue')  # Create a bar plot
+
+    # Adding title and labels
+    plt.title('Error Distance Bar Plot')
+    plt.xlabel('Sensor Fail Probability')  # Adjust as needed
+    plt.ylabel('Distance from true position')
+
+    # Adding error values on top of each bar
+    for i, v in enumerate(errors):
+        plt.text(i, v - 1, v, ha='center', va="top")
+
+    # Saving the figure to a PNG file
+    plt.savefig('error_distance_bar_plot.png', bbox_inches='tight')  # Adjust the path and filename as needed
+    plt.close()  # Close the plotting window
+
 def plot_ellipse(mean, cov, filename="uncertainty_ellipse"):
     # Calculate the eigenvalues and eigenvectors of the covariance matrix
     eigenvalues, eigenvectors = np.linalg.eigh(cov)

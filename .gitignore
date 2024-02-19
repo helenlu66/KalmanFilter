@@ -1,0 +1,7 @@
+Creative*
+__pycache__/*
+master/*
+*.log
+*.aux
+*.out
+*.pdf
